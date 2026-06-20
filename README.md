@@ -98,51 +98,36 @@ Message IDs:
 
 ```
 .
-├── cmd/torrent/main.go          # CLI entry point
+├── cmd/
+│   ├── torrent/main.go          # CLI entry point (headless)
+│   └── torrent-ui/main.go       # Web UI entry point
 ├── internal/
 │   ├── bencode/                 # Bencode decoder/encoder
-│   │   ├── types.go             # Value type and Encode()
-│   │   ├── decode.go            # Recursive descent parser
-│   │   └── decode_test.go       # Parser tests
 │   ├── torrent/                 # Torrent metadata parser
-│   │   ├── torrent.go           # Parse .torrent files, info_hash
-│   │   └── torrent_test.go      # Metadata tests
 │   ├── tracker/                 # HTTP tracker protocol
-│   │   ├── tracker.go           # Announce, compact peer parsing
-│   │   └── tracker_test.go      # Tracker tests
 │   ├── peer/                    # Peer wire protocol
-│   │   ├── handshake.go         # BitTorrent handshake
-│   │   ├── handshake_test.go    # Handshake encode/decode tests
-│   │   ├── message.go           # Peer messages (request, piece, etc.)
-│   │   └── message_test.go      # Message serialize/parse tests
 │   ├── download/                # Download orchestration
-│   │   └── download.go          # Piece download, block assembly, hash verify
-│   └── storage/                 # File I/O and resume state
-│       └── storage.go           # File creation, resume state JSON
+│   ├── storage/                 # File I/O and resume state
+│   ├── session/                 # Session manager (multi-torrent)
+│   ├── security/                # Security scanner (filename checks)
+│   └── api/                     # REST API + SSE + template rendering
+├── web/
+│   ├── templates/               # Go HTML templates (7 pages)
+│   └── static/                  # CSS + HTMX library
 ├── scripts/
-│   └── gen-sample-torrent.go    # Generate a sample .torrent for testing
-├── sample.torrent               # Example torrent file
+│   └── gen-sample-torrent.go    # Generate a sample .torrent
+├── sample.torrent
 ├── go.mod
 └── README.md
 ```
 
 ## How to Run
 
+### CLI Mode (headless)
+
 ```bash
-# Build the client
-go build -o torrent ./cmd/torrent
-
-# Run with a torrent file
-./torrent --torrent ./sample.torrent --out ./downloads
-
-# Specify a custom port
-./torrent --torrent ./sample.torrent --out ./downloads --port 6881
-
-# Generate a sample torrent from a content file
-go run ./scripts/gen-sample-torrent.go my.torrent my-content.dat
+go run ./cmd/torrent --torrent ./sample.torrent --out ./downloads
 ```
-
-### Flags
 
 | Flag       | Default | Description |
 |------------|---------|-------------|
@@ -150,24 +135,153 @@ go run ./scripts/gen-sample-torrent.go my.torrent my-content.dat
 | `--out`     | `.`    | Output directory |
 | `--port`    | `6881` | Listening port for tracker announces |
 
-### Output
+### UI Mode
 
-The client logs:
-- Tracker URL and response
-- Number of peers discovered
-- Connection attempts
-- Handshake success/failure
-- Per-piece download progress
-- SHA1 verification results
-- Download completion
+```bash
+go run ./cmd/torrent-ui
+# → open http://localhost:8080
+```
 
-Resume state is saved to `<output-file>.resume.json`.
+Set the port via the `PORT` environment variable:
+```bash
+PORT=9090 go run ./cmd/torrent-ui
+```
+
+### Both Modes
+
+```bash
+# Generate a sample torrent
+go run ./scripts/gen-sample-torrent.go sample.torrent my-content.dat
+
+# Run tests
+go test ./... -v
+```
 
 ## Running Tests
 
 ```bash
 go test ./... -v
 ```
+
+## UI Features
+
+### Dashboard
+- List all torrents with name, size, status, progress bar, speeds, ETA, ratio
+- Live updates every 2 seconds via HTMX polling + SSE
+- Start, pause, resume, and remove torrents from the dashboard
+
+### Add Torrent
+- Upload `.torrent` files via browser
+- Choose download directory
+- Torrent is validated before adding
+- Auto-starts download after adding
+
+### Torrent Detail
+- Full metadata view (info hash, size, downloaded, speeds, ratio)
+- Large progress bar with piece completion count
+- Security risk summary
+- Quick actions (pause, resume, remove)
+- Tab navigation to Peers / Trackers / Security pages
+
+### Peers Page
+- Shows all discovered peers from tracker
+- IP address, port, last active time
+
+### Trackers Page
+- Announce URL
+- Status, last announce time, next announce time
+
+### Security Report
+- Overall risk level: Low / Medium / High
+- Warnings list
+- Suspicious files table with reasons
+- Tracker warnings (HTTP vs HTTPS)
+- Network warnings and disclaimer
+- See Security Scanner section below for full details
+
+### Settings
+- Default download directory
+- Listen port
+- Max active downloads
+- Max download speed
+- Max upload speed
+
+## REST API
+
+All endpoints return JSON. The UI uses these via HTMX for live updates.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/torrents` | List all torrents |
+| `POST` | `/api/torrents` | Add torrent (multipart form) |
+| `GET` | `/api/torrents/{id}` | Get torrent details |
+| `POST` | `/api/torrents/{id}/start` | Start download |
+| `POST` | `/api/torrents/{id}/pause` | Pause download |
+| `POST` | `/api/torrents/{id}/resume` | Resume download |
+| `DELETE` | `/api/torrents/{id}` | Remove torrent |
+| `DELETE` | `/api/torrents/{id}?delete_files=true` | Remove torrent + files |
+| `GET` | `/api/torrents/{id}/peers` | List peers for a torrent |
+| `GET` | `/api/torrents/{id}/trackers` | Get tracker info |
+| `GET` | `/api/torrents/{id}/security-report` | Get security scan report |
+| `GET` | `/api/events` | SSE stream of torrent updates |
+| `GET` | `/api/settings` | Get current settings |
+| `POST` | `/api/settings` | Update settings |
+
+## Security Scanner
+
+The security scanner performs metadata-only checks on torrent files. It **does not** scan the actual downloaded content.
+
+### Checks Performed
+
+- **Suspicious file extensions**: `.exe`, `.bat`, `.cmd`, `.scr`, `.msi`, `.apk`, `.jar`, `.vbs`, `.ps1`, `.sh`, `.dmg`, `.reg`, `.com`, `.pif`, `.js`, `.wsf`
+- **Double extensions**: Files like `movie.mp4.exe` or `document.pdf.scr`
+- **Path traversal**: Filenames containing `../` or absolute paths
+- **Hidden files**: Files starting with `.`
+- **Archive files**: `.zip`, `.rar`, `.7z`, `.tar`, `.gz`, `.bz2`, `.xz`
+- **Long filenames**: Names over 200 characters
+- **Large executable files**: Suspicious extensions over 50 MB
+- **Many tiny files**: Large number of pieces under 16 KB
+- **HTTP trackers**: Warnings for non-HTTPS tracker URLs
+
+### Risk Scoring
+
+| Factor | Points |
+|--------|--------|
+| Suspicious extension | +3 |
+| Double extension | +4 |
+| Path traversal | +5 |
+| HTTP tracker (not HTTPS) | +2 |
+
+- **Low** (0-1): No significant risks detected
+- **Medium** (2-4): Some suspicious indicators
+- **High** (5+): Multiple strong risk indicators
+
+### Disclaimer
+
+The security scanner performs metadata and filename checks only. It cannot guarantee that downloaded content is safe. Always scan downloaded files with trusted antivirus software before opening them.
+
+## Implementation Details
+
+### Session Manager (`internal/session/`)
+
+Manages multiple torrent downloads in parallel goroutines. Each torrent runs the existing `download.Torrent()` function with a progress-wrapping writer. A speed tracker samples bytes downloaded over a 10-second window.
+
+### Persistence
+
+- Session state saved to `torrent-ui-state.json` (JSON)
+- On restart, all previous torrents are loaded in "paused" state
+- Each torrent's resume data is stored alongside the downloaded file
+- Torrent files added via UI are copied to the output directory
+
+### Live Updates
+
+Server-Sent Events at `/api/events` broadcast torrent state as JSON every 1 second during active downloads. The UI's dashboard polls `/api/torrents` every 2 seconds via HTMX `hx-trigger="every 2s"`.
+
+### Frontend Stack
+
+- **Go `html/template`** for server-rendered HTML
+- **HTMX** for AJAX interactions (form submission, polling, dynamic updates)
+- **Plain CSS** with a dark theme inspired by GitHub's design
 
 ## Limitations
 
@@ -176,8 +290,9 @@ go test ./... -v
 - Sequential piece download from a single peer
 - No DHT, PEX, or magnet links
 - No encryption (plain protocol only)
-- No download/upload rate limiting
+- No download/upload rate limiting in the core
 - No seeding support
+- Security scanner only checks metadata, not actual file content
 
 ## Future Improvements
 
@@ -193,3 +308,6 @@ go test ./... -v
 - [ ] Seeding after download completes
 - [ ] Web UI or TUI for monitoring
 - [ ] IP blocklist support
+- [ ] Real-time peer connection state in UI
+- [ ] Bandwidth usage graphs
+- [ ] Docker support

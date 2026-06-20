@@ -1,0 +1,67 @@
+{{ define "content" }}
+<h1>{{ .torrent.Name }}</h1>
+
+<div class="detail-grid">
+    <div class="card">
+        <h3>Info</h3>
+        <dl>
+            <dt>Info Hash</dt>
+            <dd><code>{{ .torrent.InfoHash }}</code></dd>
+            <dt>Total Size</dt>
+            <dd>{{ formatSize .torrent.TotalSize }}</dd>
+            <dt>Downloaded</dt>
+            <dd>{{ formatSize .torrent.Downloaded }}</dd>
+            <dt>Status</dt>
+            <dd><span class="state-{{ .torrent.State }}">{{ stateLabel .torrent.State }}</span></dd>
+            <dt>Download Speed</dt>
+            <dd>{{ humanSpeed .torrent.DownloadSpeed }}</dd>
+            <dt>Upload Speed</dt>
+            <dd>{{ humanSpeed .torrent.UploadSpeed }}</dd>
+            <dt>ETA</dt>
+            <dd>{{ formatETA .torrent.ETA }}</dd>
+            <dt>Ratio</dt>
+            <dd>{{ printf "%.2f" .torrent.Ratio }}</dd>
+        </dl>
+    </div>
+
+    <div class="card">
+        <h3>Progress</h3>
+        <div class="progress-bar lg">
+            <div class="progress-fill {{ percentClass .torrent.Progress }}" style="width: {{ .torrent.Progress }}%"></div>
+        </div>
+        <p>{{ printf "%.1f" .torrent.Progress }}% ({{ .torrent.NumPieces }} pieces, {{ len .torrent.CompletedPieces }} completed)</p>
+    </div>
+
+    {{ if .report }}
+    <div class="card">
+        <h3>Security</h3>
+        <p>Risk Level: <span class="risk-{{ .report.RiskLevel }}">{{ .report.RiskLabel }}</span></p>
+        {{ if .report.Warnings }}
+        <ul>
+            {{ range .report.Warnings }}
+            <li>{{ . }}</li>
+            {{ end }}
+        </ul>
+        {{ end }}
+        <a href="/torrent/{{ .torrent.ID }}/security" class="btn btn-sm">Full Report</a>
+    </div>
+    {{ end }}
+</div>
+
+<div class="actions">
+    {{ if eq .torrent.State.String "downloading" }}
+    <button class="btn" hx-post="/api/torrents/{{ .torrent.ID }}/pause" hx-target="body">Pause</button>
+    {{ else if eq .torrent.State.String "paused" }}
+    <button class="btn" hx-post="/api/torrents/{{ .torrent.ID }}/resume" hx-target="body">Resume</button>
+    {{ end }}
+    <button class="btn btn-danger" hx-delete="/api/torrents/{{ .torrent.ID }}" hx-confirm="Remove this torrent?" hx-target="body">Remove</button>
+    <button class="btn btn-danger" hx-delete="/api/torrents/{{ .torrent.ID }}?delete_files=true" hx-confirm="Delete downloaded files too?" hx-target="body">Remove & Delete Files</button>
+</div>
+
+<div class="nav-tabs">
+    <a href="/torrent/{{ .torrent.ID }}" class="tab active">Info</a>
+    <a href="/torrent/{{ .torrent.ID }}/peers" class="tab">Peers</a>
+    <a href="/torrent/{{ .torrent.ID }}/trackers" class="tab">Trackers</a>
+    <a href="/torrent/{{ .torrent.ID }}/security" class="tab">Security</a>
+</div>
+{{ end }}

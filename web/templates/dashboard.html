@@ -1,0 +1,55 @@
+{{ define "content" }}
+<h1>Dashboard</h1>
+<div id="torrent-list" hx-get="/api/torrents" hx-trigger="every 2s" hx-swap="innerHTML">
+    {{ template "torrent-table" .torrents }}
+</div>
+{{ end }}
+
+{{ define "torrent-table" }}
+{{ if . }}
+<table class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Size</th>
+            <th>Status</th>
+            <th>Progress</th>
+            <th>DL Speed</th>
+            <th>UL Speed</th>
+            <th>ETA</th>
+            <th>Ratio</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ range . }}
+        <tr>
+            <td><a href="/torrent/{{ .ID }}">{{ .Name }}</a></td>
+            <td>{{ formatSize .TotalSize }}</td>
+            <td><span class="state-{{ .State }}">{{ stateLabel .State }}</span></td>
+            <td>
+                <div class="progress-bar">
+                    <div class="progress-fill {{ percentClass .Progress }}" style="width: {{ .Progress }}%"></div>
+                </div>
+                <small>{{ printf "%.1f" .Progress }}%</small>
+            </td>
+            <td>{{ humanSpeed .DownloadSpeed }}</td>
+            <td>{{ humanSpeed .UploadSpeed }}</td>
+            <td>{{ formatETA .ETA }}</td>
+            <td>{{ printf "%.2f" .Ratio }}</td>
+            <td>
+                {{ if eq .State "downloading" }}
+                <button class="btn btn-sm" hx-post="/api/torrents/{{ .ID }}/pause" hx-target="#torrent-list" hx-swap="outerHTML">Pause</button>
+                {{ else if eq .State "paused" }}
+                <button class="btn btn-sm" hx-post="/api/torrents/{{ .ID }}/resume" hx-target="#torrent-list" hx-swap="outerHTML">Resume</button>
+                {{ end }}
+                <button class="btn btn-sm btn-danger" hx-delete="/api/torrents/{{ .ID }}" hx-confirm="Remove this torrent?" hx-target="#torrent-list" hx-swap="outerHTML">Remove</button>
+            </td>
+        </tr>
+        {{ end }}
+    </tbody>
+</table>
+{{ else }}
+<p class="empty">No torrents added. <a href="/add">Add one</a>.</p>
+{{ end }}
+{{ end }}

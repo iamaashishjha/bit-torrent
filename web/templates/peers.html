@@ -1,0 +1,33 @@
+{{ define "content" }}
+<h1>{{ .torrent.Name }} — Peers</h1>
+
+<div class="nav-tabs">
+    <a href="/torrent/{{ .torrent.ID }}" class="tab">Info</a>
+    <a href="/torrent/{{ .torrent.ID }}/peers" class="tab active">Peers</a>
+    <a href="/torrent/{{ .torrent.ID }}/trackers" class="tab">Trackers</a>
+    <a href="/torrent/{{ .torrent.ID }}/security" class="tab">Security</a>
+</div>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>IP</th>
+            <th>Port</th>
+            <th>Progress</th>
+            <th>Last Active</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ range .peers }}
+        <tr>
+            <td><code>{{ .IP }}</code></td>
+            <td>{{ .Port }}</td>
+            <td>{{ printf "%.1f" .Progress }}%</td>
+            <td>{{ .LastActive }}</td>
+        </tr>
+        {{ else }}
+        <tr><td colspan="4">No peers connected.</td></tr>
+        {{ end }}
+    </tbody>
+</table>
+{{ end }}

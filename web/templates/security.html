@@ -1,0 +1,81 @@
+{{ define "content" }}
+<h1>{{ .torrent.Name }} — Security Report</h1>
+
+<div class="nav-tabs">
+    <a href="/torrent/{{ .torrent.ID }}" class="tab">Info</a>
+    <a href="/torrent/{{ .torrent.ID }}/peers" class="tab">Peers</a>
+    <a href="/torrent/{{ .torrent.ID }}/trackers" class="tab">Trackers</a>
+    <a href="/torrent/{{ .torrent.ID }}/security" class="tab active">Security</a>
+</div>
+
+<div class="card risk-{{ .report.RiskLevel }}">
+    <h3>Overall Risk: <span class="risk-{{ .report.RiskLevel }}">{{ .report.RiskLabel }}</span></h3>
+</div>
+
+<div class="card">
+    <h3>Warnings</h3>
+    {{ if .report.Warnings }}
+    <ul>
+        {{ range .report.Warnings }}
+        <li>{{ . }}</li>
+        {{ end }}
+    </ul>
+    {{ else }}
+    <p>No warnings.</p>
+    {{ end }}
+</div>
+
+<div class="card">
+    <h3>Suspicious Files</h3>
+    {{ if .report.SuspiciousFiles }}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Filename</th>
+                <th>Reason</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ range .report.SuspiciousFiles }}
+            <tr>
+                <td><code>{{ .Name }}</code></td>
+                <td>{{ .Reason }}</td>
+            </tr>
+            {{ end }}
+        </tbody>
+    </table>
+    {{ else }}
+    <p>No suspicious files detected.</p>
+    {{ end }}
+</div>
+
+<div class="card">
+    <h3>Tracker Warnings</h3>
+    {{ if .report.TrackerWarnings }}
+    <ul>
+        {{ range .report.TrackerWarnings }}
+        <li>{{ . }}</li>
+        {{ end }}
+    </ul>
+    {{ else }}
+    <p>No tracker warnings.</p>
+    {{ end }}
+</div>
+
+<div class="card">
+    <h3>Network Warnings</h3>
+    {{ if .report.NetworkWarnings }}
+    <ul>
+        {{ range .report.NetworkWarnings }}
+        <li>{{ . }}</li>
+        {{ end }}
+    </ul>
+    {{ else }}
+    <p>No network warnings.</p>
+    {{ end }}
+</div>
+
+<div class="disclaimer">
+    <strong>Disclaimer:</strong> This scanner only performs metadata and filename checks. It cannot guarantee that downloaded content is safe. Always scan downloaded files with trusted antivirus software before opening them.
+</div>
+{{ end }}

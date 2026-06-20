@@ -1,0 +1,24 @@
+{{ define "content" }}
+<h1>{{ .torrent.Name }} — Trackers</h1>
+
+<div class="nav-tabs">
+    <a href="/torrent/{{ .torrent.ID }}" class="tab">Info</a>
+    <a href="/torrent/{{ .torrent.ID }}/peers" class="tab">Peers</a>
+    <a href="/torrent/{{ .torrent.ID }}/trackers" class="tab active">Trackers</a>
+    <a href="/torrent/{{ .torrent.ID }}/security" class="tab">Security</a>
+</div>
+
+<div class="card">
+    <h3>Tracker</h3>
+    <dl>
+        <dt>Announce URL</dt>
+        <dd><code>{{ .tracker.AnnounceURL }}</code></dd>
+        <dt>Status</dt>
+        <dd>{{ .tracker.Status }}</dd>
+        <dt>Last Announce</dt>
+        <dd>{{ .tracker.LastAnnounce }}</dd>
+        <dt>Next Announce</dt>
+        <dd>{{ .tracker.NextAnnounce }}</dd>
+    </dl>
+</div>
+{{ end }}

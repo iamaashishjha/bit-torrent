@@ -1,0 +1,14 @@
+{{ define "content" }}
+<h1>Add Torrent</h1>
+<form hx-encoding="multipart/form-data" hx-post="/api/torrents" hx-target="body">
+    <div class="form-group">
+        <label>Torrent File</label>
+        <input type="file" name="torrent" accept=".torrent" required>
+    </div>
+    <div class="form-group">
+        <label>Output Directory</label>
+        <input type="text" name="output_dir" value="{{ .settings.DefaultDir }}" placeholder="Download directory">
+    </div>
+    <button type="submit" class="btn">Add & Start Download</button>
+</form>
+{{ end }}
